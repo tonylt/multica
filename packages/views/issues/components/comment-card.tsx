@@ -267,7 +267,7 @@ function CommentRow({
           className="relative mt-1.5 pl-8"
           onKeyDown={(e) => { if (e.key === "Escape") cancelEdit(); }}
         >
-          <div className="max-h-48 overflow-y-auto text-sm leading-relaxed">
+          <div className="text-sm leading-relaxed">
             <ContentEditor
               ref={editEditorRef}
               defaultValue={entry.content ?? ""}
@@ -484,7 +484,7 @@ function CommentCard({
                 className="relative pl-10"
                 onKeyDown={(e) => { if (e.key === "Escape") cancelEdit(); }}
               >
-                <div className="max-h-48 overflow-y-auto text-sm leading-relaxed">
+                <div className="text-sm leading-relaxed">
                   <ContentEditor
                     ref={editEditorRef}
                     defaultValue={entry.content ?? ""}
