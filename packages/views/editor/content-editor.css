@@ -489,7 +489,7 @@
 }
 
 /* Link preview card — floating card for link inspection.
- * Positioned with position: fixed via JS (createPortal to body). */
+ * Uses position: absolute inside a relative parent so it scrolls with content. */
 .link-preview-card {
   display: flex;
   align-items: center;
@@ -503,4 +503,19 @@
     0 0 0 1px color-mix(in srgb, black 4%, transparent);
   max-width: min(360px, calc(100vw - 2rem));
   white-space: nowrap;
+}
+
+/* Readonly link wrapper — inline relative container for absolute card */
+.rich-text-editor .link-preview-wrapper {
+  position: relative;
+}
+
+/* Card anchor below the link text */
+.link-preview-anchor {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 50;
+  margin-top: 0.25rem;
+  display: block;
 }

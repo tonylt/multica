@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import type { Editor } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
@@ -102,24 +102,13 @@ const isMac =
   typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
 const mod = isMac ? "\u2318" : "Ctrl";
 
-/** Walk up from `el` to find the nearest ancestor with overflow: auto/scroll. */
-function getScrollParent(el: HTMLElement): HTMLElement | Window {
-  let parent = el.parentElement;
-  while (parent) {
-    const style = getComputedStyle(parent);
-    if (/(auto|scroll)/.test(style.overflow + style.overflowY)) return parent;
-    parent = parent.parentElement;
-  }
-  return window;
-}
-
-const BUBBLE_MENU_BASE_OPTIONS = {
-  strategy: "fixed" as const,
+/** Hoisted — Tiptap's default strategy is "absolute" (menu scrolls with content). */
+const BUBBLE_MENU_OPTIONS = {
+  strategy: "absolute" as const,
   placement: "top" as const,
   offset: 8,
   flip: true,
   shift: { padding: 8 },
-  hide: true, // auto-hide when selection scrolls out of viewport
 };
 
 // ---------------------------------------------------------------------------
@@ -443,14 +432,8 @@ function ListDropdown({
 
 function EditorBubbleMenu({ editor }: { editor: Editor }) {
   const [mode, setMode] = useState<"toolbar" | "link-edit">("toolbar");
-  const [scrollTarget, setScrollTarget] = useState<HTMLElement | Window>(window);
 
   useEditorTransactionUpdate(editor);
-
-  // Discover the real scroll container so the plugin repositions/hides on scroll.
-  useEffect(() => {
-    setScrollTarget(getScrollParent(editor.view.dom));
-  }, [editor]);
 
   // Reset to toolbar mode whenever selection changes (e.g. dismiss link-edit bar).
   useEffect(() => {
@@ -493,7 +476,7 @@ function EditorBubbleMenu({ editor }: { editor: Editor }) {
       shouldShow={shouldShowBubbleMenu}
       updateDelay={0}
       style={{ zIndex: 50 }}
-      options={useMemo(() => ({ ...BUBBLE_MENU_BASE_OPTIONS, scrollTarget }), [scrollTarget])}
+      options={BUBBLE_MENU_OPTIONS}
     >
       {mode === "link-edit" ? (
         <LinkEditBar editor={editor} onClose={closeLinkEdit} />
