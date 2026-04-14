@@ -32,6 +32,10 @@ export function preprocessMarkdown(markdown: string): string {
  */
 const FILE_LINK_LINE = /^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/;
 
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+
 function preprocessFileCards(markdown: string): string {
   return markdown
     .split("\n")
@@ -42,7 +46,7 @@ function preprocessFileCards(markdown: string): string {
       const filename = match[1]!;
       const url = match[2]!;
       if (!isFileCardUrl(url)) return line;
-      return `<div data-type="fileCard" data-href="${url}" data-filename="${filename}"></div>`;
+      return `<div data-type="fileCard" data-href="${escapeAttr(url)}" data-filename="${escapeAttr(filename)}"></div>`;
     })
     .join("\n");
 }

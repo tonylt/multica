@@ -39,7 +39,20 @@ import { createEditorExtensions } from "./extensions";
 import { uploadAndInsertFile } from "./extensions/file-upload";
 import { preprocessMarkdown } from "./utils/preprocess";
 import { EditorBubbleMenu } from "./bubble-menu";
+import { EditorLinkPreview } from "./link-preview";
 import "./content-editor.css";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Blob URLs (blob:http://…) are process-local and expire on reload. Strip them
+ *  from serialised markdown so they never reach the database. */
+const BLOB_IMAGE_RE = /!\[[^\]]*\]\(blob:[^)]*\)\n?/g;
+
+function stripBlobUrls(md: string): string {
+  return md.replace(BLOB_IMAGE_RE, "");
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -62,6 +75,8 @@ interface ContentEditorRef {
   clearContent: () => void;
   focus: () => void;
   uploadFile: (file: File) => void;
+  /** True when file uploads are still in progress. */
+  hasActiveUploads: () => boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,7 +129,7 @@ const ContentEditor = forwardRef<ContentEditorRef, ContentEditorProps>(
         if (!onUpdateRef.current) return;
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
-          onUpdateRef.current?.(ed.getMarkdown());
+          onUpdateRef.current?.(stripBlobUrls(ed.getMarkdown()));
         }, debounceMs);
       },
       onBlur: () => {
@@ -131,33 +146,25 @@ const ContentEditor = forwardRef<ContentEditorRef, ContentEditorProps>(
             const href = link?.getAttribute("href");
             if (!href || href.startsWith("mention://")) return false;
 
-            const openLink = () => {
-              if (href.startsWith("/")) {
-                // Internal path — dispatch custom event so the app can handle it
-                // (direct window.open breaks in Electron hash router)
-                window.dispatchEvent(
-                  new CustomEvent("multica:navigate", { detail: { path: href } }),
-                );
-              } else {
-                window.open(href, "_blank", "noopener,noreferrer");
-              }
-            };
-
-            if (!editable) {
-              // Readonly: any click on link opens new tab
-              event.preventDefault();
-              openLink();
-              return true;
+            if (editable) {
+              // Edit mode: don't open link on click. ProseMirror's
+              // mousedown/mouseup cycle (already completed by the time
+              // this click handler runs) places the cursor on the link.
+              // LinkBubbleMenu detects cursor-on-link and shows the
+              // preview card with Open / Copy / Edit actions.
+              return false;
             }
 
-            if (event.metaKey || event.ctrlKey) {
-              // Edit mode: Cmd/Ctrl+click opens link
-              event.preventDefault();
-              openLink();
-              return true;
+            // Readonly mode: open immediately.
+            event.preventDefault();
+            if (href.startsWith("/")) {
+              window.dispatchEvent(
+                new CustomEvent("multica:navigate", { detail: { path: href } }),
+              );
+            } else {
+              window.open(href, "_blank", "noopener,noreferrer");
             }
-
-            return false;
+            return true;
           },
         },
         attributes: {
@@ -192,7 +199,7 @@ const ContentEditor = forwardRef<ContentEditorRef, ContentEditorProps>(
     }, [editor, editable, defaultValue]);
 
     useImperativeHandle(ref, () => ({
-      getMarkdown: () => editor?.getMarkdown() ?? "",
+      getMarkdown: () => stripBlobUrls(editor?.getMarkdown() ?? ""),
       clearContent: () => {
         editor?.commands.clearContent();
       },
@@ -204,6 +211,15 @@ const ContentEditor = forwardRef<ContentEditorRef, ContentEditorProps>(
         const endPos = editor.state.doc.content.size;
         uploadAndInsertFile(editor, file, onUploadFileRef.current, endPos);
       },
+      hasActiveUploads: () => {
+        if (!editor) return false;
+        let uploading = false;
+        editor.state.doc.descendants((node) => {
+          if (node.attrs.uploading) uploading = true;
+          return !uploading;
+        });
+        return uploading;
+      },
     }));
 
     if (!editor) return null;
@@ -211,7 +227,12 @@ const ContentEditor = forwardRef<ContentEditorRef, ContentEditorProps>(
     return (
       <div className="relative min-h-full">
         <EditorContent editor={editor} />
-        {editable && <EditorBubbleMenu editor={editor} />}
+        {editable && (
+          <>
+            <EditorBubbleMenu editor={editor} />
+            <EditorLinkPreview editor={editor} />
+          </>
+        )}
       </div>
     );
   },

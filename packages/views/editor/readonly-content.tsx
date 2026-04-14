@@ -33,6 +33,7 @@ import { cn } from "@multica/ui/lib/utils";
 import { useNavigation } from "../navigation";
 import { IssueMentionCard } from "../issues/components/issue-mention-card";
 import { ImageLightbox } from "./extensions/image-view";
+import { ReadonlyLinkWrapper } from "./link-preview";
 import { preprocessMarkdown } from "./utils/preprocess";
 import "./content-editor.css";
 
@@ -109,7 +110,7 @@ function IssueMentionLink({ issueId, label }: { issueId: string; label?: string 
 }
 
 const components: Partial<Components> = {
-  // Links — route mention:// to mention components, others open in new tab
+  // Links — route mention:// to mention components, others show preview card
   a: ({ href, children }) => {
     if (href?.startsWith("mention://")) {
       const match = href.match(
@@ -128,18 +129,9 @@ const components: Partial<Components> = {
       return <span className="mention">{children}</span>;
     }
 
-    // Regular links — open in new tab
-    return (
-      <a
-        href={href}
-        onClick={(e) => {
-          e.preventDefault();
-          if (href) window.open(href, "_blank", "noopener,noreferrer");
-        }}
-      >
-        {children}
-      </a>
-    );
+    // Regular links — show preview card on click
+    if (!href) return <a>{children}</a>;
+    return <ReadonlyLinkWrapper href={href}>{children}</ReadonlyLinkWrapper>;
   },
 
   // Images — centered with toolbar + lightbox (matches Tiptap ImageView NodeView)
